@@ -19,16 +19,10 @@ public class Template_UIManager : MonoBehaviour
     #region VARS
 
     //These are the references to UI components and containers in the scene
-    [Header("References")]
-    public GameObject dialogueContainer;
-    public GameObject NPC_Container;
-    public GameObject playerContainer;
+    [Header("References")] public GameObject dialogueContainer, NPC_Container, playerContainer;
 
-    public Text NPC_Text;
-    public Text NPC_label;
-    public Image NPCSprite;
-    public Image playerSprite;
-    public Text playerLabel;
+    public Text NPC_Text, NPC_label, playerLabel;
+    public Image NPCSprite, playerSprite;
 
     public List<Button> maxPlayerChoices = new List<Button>();
 
@@ -37,13 +31,10 @@ public class Template_UIManager : MonoBehaviour
 
     [Header("Options")]
     public KeyCode interactionKey;
-    public bool NPC_animateText;
-    public bool player_animateText;
-    public float NPC_secsPerLetter;
-    public float player_secsPerLetter;
-    public float choiceInterval;
+    public bool NPC_animateText, player_animateText;
+    public float NPC_secsPerLetter, player_secsPerLetter, choiceInterval;
     [Tooltip("Tick this if using Navigation. Will prevent mixed input.")]
-    public bool useNavigation, debugMode;
+    public bool debugMode, useNavigation;
 
 
     bool dialoguePaused = false; //Custom variable to prevent the manager from calling VD.Next
@@ -65,11 +56,16 @@ public class Template_UIManager : MonoBehaviour
     }
 
     //Call this to begin the dialogue and advance through it
-    public void Interact()
+    public virtual void Interact()
     {
         //Sometimes, we might want to check the ExtraVariables and VAs before moving forward
         //We might want to modify the dialogue or perhaps go to another node, or dont start the dialogue at all
         //In such cases, the function will return true
+        Interaction();
+    }
+
+    public void Interaction()
+    {
         var doNotInteract = PreConditions(vide_Assigned);
         if (doNotInteract) return;
 
@@ -78,7 +74,7 @@ public class Template_UIManager : MonoBehaviour
     }
 
     //This begins the conversation. 
-    void Begin(VIDE_Assign dialogue)
+    public virtual void Begin(VIDE_Assign dialogue)
     {
         //Let's reset the NPC text variables
         NPC_Text.text = "";
@@ -100,7 +96,7 @@ public class Template_UIManager : MonoBehaviour
     }
 
     //Calls next node in the dialogue
-    public void CallNext()
+    public virtual void CallNext()
     {
         //Let's not go forward if text is currently being animated, but let's speed it up.
         if (animatingText) { CutTextAnim(); return; }
@@ -124,19 +120,14 @@ public class Template_UIManager : MonoBehaviour
     }
 
     //Input related stuff (scroll through player choices and update highlight)
+    private VD.NodeData data;
     void Update()
     {
-        //Lets just store the Node Data variable for the sake of fewer words
-        if (!VD.isActive)
-        {
-            if (!debugMode) return;
-            if (Input.GetKeyDown(interactionKey)) Interact();
-        }
-        else if (VD.isActive) //If there is a dialogue active
+        if (VD.isActive) //If there is a dialogue active
         {
             //Scroll through Player dialogue options if dialogue is not paused and we are on a player node
             //For player nodes, NodeData.commentIndex is the index of the picked choice
-            var data = VD.nodeData;
+            data = VD.nodeData;
             if (!data.pausedAction && !animatingText && data.isPlayer && !useNavigation)
             {
                 if (Input.GetKeyDown(KeyCode.S) || Input.GetKeyDown(KeyCode.DownArrow))
@@ -149,7 +140,9 @@ public class Template_UIManager : MonoBehaviour
                     if (data.commentIndex > 0)
                         data.commentIndex--;
                 }
+
                 //Color the Player options. Blue for the selected one
+                if (!useNavigation) return;
                 for (int i = 0; i < maxPlayerChoices.Count; i++)
                 {
                     maxPlayerChoices[i].transform.GetChild(0).GetComponent<Text>().color = Color.white;
@@ -157,15 +150,21 @@ public class Template_UIManager : MonoBehaviour
                 }
             }
 
-            //Detect interact key
-            if (Input.GetKeyDown(interactionKey)) Interact();
-            if (Input.GetMouseButtonDown(0))
-            {
-                if (!animatingText || !data.isPlayer) return;
-                Interact();
-            }
+            DetectInput();
         }
         //Note you could also use Unity's Navi system, in which case you would tick the useNavigation flag.
+    }
+
+    public virtual void DetectInput()
+    {
+        //Detect interact key
+        if (!VD.isActive) return;
+        if (Input.GetKeyDown(interactionKey)) Interact();
+        if (Input.GetMouseButtonDown(0))
+        {
+            if (!animatingText || !data.isPlayer) return;
+            Interact();
+        }
     }
 
     //When we call VD.Next, nodeData will change. When it changes, OnNodeChange event will fire
